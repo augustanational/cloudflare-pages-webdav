@@ -2,6 +2,21 @@ export async function onRequest(context) {
   const request = context.request;
   const url = new URL(request.url);
 
+  // 1. CHẶN GHI (READ-ONLY FILTER)
+  // Chỉ cho phép các phương thức đọc dữ liệu: GET, HEAD, OPTIONS, PROPFIND
+  const allowedMethods = ["GET", "HEAD", "OPTIONS", "PROPFIND"];
+  const currentMethod = request.method.toUpperCase();
+
+  if (!allowedMethods.includes(currentMethod)) {
+    return new Response(
+      `Phương thức ${currentMethod} bị từ chối. Proxy này đang ở chế độ Chỉ đọc (Read-Only).`, 
+      { 
+        status: 403, 
+        headers: { "Content-Type": "text/plain; charset=utf-8" } 
+      }
+    );
+  }
+
   // Lấy cấu hình từ Biến môi trường (Environment Variables) của Cloudflare Pages
   const ORIGIN_SERVER = context.env.WEBDAV_URL; 
   const USERNAME = context.env.WEBDAV_USER;
@@ -29,7 +44,7 @@ export async function onRequest(context) {
   // Tự động chèn thông tin đăng nhập ẩn vào header trước khi gửi đi
   newHeaders.set("Authorization", `Basic ${AUTH_TOKEN}`);
 
-  // Tạo request mới giữ nguyên các phương thức WebDAV đặc thù (PROPFIND, MKCOL,...)
+  // Tạo request mới giữ nguyên các phương thức được phép
   const modifiedRequest = new Request(targetUrl, {
     method: request.method,
     headers: newHeaders,
